@@ -24,14 +24,15 @@ public class BitcoinReader {
     private static final long BLOCK_BEGIN_HEIGHT = 0;
 
     // Hálózati paraméterek, amelyek az api által definiált fő vagy teszt paraméterek, esetleg saját
+    @SuppressWarnings("FieldCanBeLocal")
     private static NetworkParameters np;
     private static BlockFileLoader loader;
 
 
-    /**
-     * Az osztály használatakor inicializálja a fent deklarált változókat
-     * a hálózati paramétereket a főhálózatból veszi, majd ez alapján generál egy kontextust
-     * Végül pedig inicializálja a bitcoinJ blockparser-ét, amihez szükség van a blockchain fájlok listájára is
+    /*
+      Az osztály használatakor inicializálja a fent deklarált változókat
+      a hálózati paramétereket a főhálózatból veszi, majd ez alapján generál egy kontextust
+      Végül pedig inicializálja a bitcoinJ blockparser-ét, amihez szükség van a blockchain fájlok listájára is
      */
     static {
         np = new MainNetParams();
@@ -60,8 +61,8 @@ public class BitcoinReader {
                 // jelzi, hogy a feldolgozás halad
                 System.out.println("Analysing block " + blockCounter);
 
-
                 App.doStatistic(block, true);
+
             }
 
 
@@ -72,6 +73,8 @@ public class BitcoinReader {
             Mivel a bitcoinJ api jelenleg nincs felkészítve a SegWit-es tranzakciók feldolgozására
             Így a SegWit engedélyezésétől számított első blokknál megakad
              */
+        } finally {
+            System.out.println("End of bitcoinJ part");
         }
 
     }
@@ -109,7 +112,6 @@ public class BitcoinReader {
                 }
             }
         }
-
         return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(block.getTime()), maxTxOutputSum);
     }
 
@@ -121,11 +123,46 @@ public class BitcoinReader {
     public static MapPair<String, Object> getBlockTransactionAmount(Block block) {
         int amount = 0;
         if(block.getTransactions() != null){
-            for ( Transaction tx: block.getTransactions() ) {
+            for ( @SuppressWarnings("unused") Transaction tx: block.getTransactions() ) {
                 ++amount;
             }
         }
 
         return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(block.getTime()), amount);
+    }
+
+    /**
+     * Összegzi, hogy az adott blokkban mennyi az összes kimeneti Bitcoin
+     * @param block A blokk, aminek számoljuk a Bitcoin kimenetét
+     * @return A blokk keletkezési napja és a bitcoin kimenet egy MapPair-ben
+     */
+    public static MapPair<String, Object> getBlockBitcoinOutputSum(Block block) {
+        long sum = 0;
+        if(block.getTransactions() != null){
+            for ( Transaction tx: block.getTransactions() ) {
+                sum += tx.getOutputSum().value;
+            }
+        }
+
+        return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(block.getTime()), sum);
+    }
+
+    /**
+     * (Szükség van egy függvényobjektumra, hogy generikus maradhasson a program, és mivel egy adott blokk függvényét
+     * nem tudjuk sajnos lekérni, mert nem statikus függvény, így ezt használjuk helyette.)
+     * @param block A vizsgált blokk
+     * @return A blokk keletkezési napja és a nehézsége.
+     */
+    public static MapPair<String, Object> getBlockDifficulty(Block block){
+        return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(block.getTime()), block.getDifficultyTarget());
+    }
+
+    public static MapPair<String, Object> calculateAverageTimeDifference(Block block, BlockTimeDifferenceAverage blockTimeDifferenceAverage){
+        if(blockTimeDifferenceAverage != null){
+            blockTimeDifferenceAverage.addBlockTime(block.getTime().getTime());
+            return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(block.getTime()), blockTimeDifferenceAverage);
+        } else {
+            return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(block.getTime()), null);
+        }
     }
 }
