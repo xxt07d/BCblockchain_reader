@@ -16,7 +16,7 @@
     <orderEntry type="library" name="Maven: com.squareup.okhttp:okhttp:2.6.0" level="project" />
     <orderEntry type="library" name="Maven: com.squareup.okio:okio:1.6.0" level="project" />
     <orderEntry type="library" name="Maven: org.apache.commons:commons-lang3:3.4" level="project" />
-    <orderEntry type="library" name="Maven: org.bitcoinj:bitcoinj-core:0.14.6" level="project" />
+    <orderEntry type="library" name="Maven: org.bitcoinj:bitcoinj-core:0.14.7" level="project" />
     <orderEntry type="library" name="Maven: com.madgag.spongycastle:core:1.51.0.0" level="project" />
     <orderEntry type="library" name="Maven: com.google.protobuf:protobuf-java:2.6.1" level="project" />
     <orderEntry type="library" name="Maven: com.google.guava:guava:18.0" level="project" />
