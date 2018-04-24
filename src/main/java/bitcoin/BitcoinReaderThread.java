@@ -6,6 +6,7 @@ package bitcoin;
 public class BitcoinReaderThread extends Thread {
     private BitcoinReader bitcoinReader;    // BitcoinJ-t használó olvasó osztály
 
+
     /**
      * Konstruktor
      * @param bitcoinReader Az objektum, amivel a beolvasás történik

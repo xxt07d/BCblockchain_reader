@@ -5,5 +5,5 @@ package bitcoin;
  */
 @FunctionalInterface
 public interface BlockFunctionInterface {
-    MapPair<String, Object> function(Object o);
+    MapPair<String, Object> function(Object... o);
 }
