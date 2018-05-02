@@ -18,9 +18,6 @@ public class BlockTimeDifferenceAverage {
             this.day = new SimpleDateFormat("yyyy-MM-dd").format(blockTime);
             ++blockCounter;
         } else if( day.equals(new SimpleDateFormat("yyyy-MM-dd").format(blockTime))){
-            if(day.equals("2009-01-15")){
-                System.out.println("xddxdxd");
-            }
             ++blockCounter;
             differenceSum += blockTime - lastBlockTime;
             lastBlockTime = blockTime;
