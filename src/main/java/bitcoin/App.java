@@ -36,18 +36,22 @@ public class App {
     private static long offlineBlockCounter = OFFLINE_BLOCK_BEGIN_HEIGHT;
 
     // A statisztikai adatokat kiválasztó flag-ek
-    private static boolean COUNT_DAILY_TRANSACTIONS = true;
-    private static boolean SEARCH_DAILY_MAXIMUM_OUTPUT_TRANSACTION = true;
-    private static boolean SUM_DAILY_BITCOIN_OUTPUTS = true;
-    private static boolean GET_DAILY_MAXIMUM_DIFFICULTY = true;
-    private static boolean CALCULATE_AVERAGE_TIME_BETWEEN_BLOCKS = true;
+    private static boolean COUNT_DAILY_TRANSACTIONS = false;
+    private static boolean SEARCH_DAILY_MAXIMUM_OUTPUT_TRANSACTION = false;
+    private static boolean SUM_DAILY_BITCOIN_OUTPUTS = false;
+    private static boolean GET_DAILY_MAXIMUM_DIFFICULTY = false;
+    private static boolean CALCULATE_AVERAGE_TIME_BETWEEN_BLOCKS = false;
+    private static boolean SUMMARIZE_DAILY_BITCOIN_PRODUCTION = false;
+    private static boolean SUMMARIZE_DAILY_BLOCK_PRODUCTION = true;
 
     // Map objektumok deklarációja a különböző statisztikákhoz, ezekben lévő adatokat írjuk ki
     private static Map<String, Object> dailyTotTxs = null;
-    private static Map<String, Object> dailyMaxTx = null;
-    private static Map<String, Object> dailyBitcoinOutput = null;
-    private static Map<String, Object> dailyMaxDifficulty = null;
-    private static Map<String, Object> dailyAverageDifference = null;
+    private static Map<String, Object> dailyMaxTxs = null;
+    private static Map<String, Object> dailyBitcoinOutputs = null;
+    private static Map<String, Object> dailyMaxDifficulties = null;
+    private static Map<String, Object> dailyAverageDifferences = null;
+    private static Map<String, Object> dailyBitcoinProductions = null;
+    private static Map<String, Object> dailyBlockProductions = null;
 
     // Blockchain Data Api blockparserének inicializálása
     private static BlockExplorer blockExplorer = new BlockExplorer();
@@ -70,24 +74,34 @@ public class App {
             bitcoinJAPIFuncitons.put("COUNT_DAILY_TRANSACTIONS", (Object... o) -> BitcoinReader.getBlockTransactionAmount((org.bitcoinj.core.Block)o[0]));
         }
         if(SEARCH_DAILY_MAXIMUM_OUTPUT_TRANSACTION){
-            dailyMaxTx = new HashMap<>();
+            dailyMaxTxs = new HashMap<>();
             BlockchainDataAPIFuncitons.put("SEARCH_DAILY_MAXIMUM_OUTPUT_TRANSACTION", (Object... o) -> getBlockMaxValuePair((Block)o[0]));
             bitcoinJAPIFuncitons.put("SEARCH_DAILY_MAXIMUM_OUTPUT_TRANSACTION", (Object... o) -> BitcoinReader.getBlockMaxValuePair((org.bitcoinj.core.Block)o[0]));
         }
         if(SUM_DAILY_BITCOIN_OUTPUTS){
-            dailyBitcoinOutput = new HashMap<>();
+            dailyBitcoinOutputs = new HashMap<>();
             BlockchainDataAPIFuncitons.put("SUM_DAILY_BITCOIN_OUTPUTS", (Object... o) -> getBlockBitcoinOutputSum((Block)o[0]));
             bitcoinJAPIFuncitons.put("SUM_DAILY_BITCOIN_OUTPUTS", (Object... o) -> BitcoinReader.getBlockBitcoinOutputSum((org.bitcoinj.core.Block)o[0]));
         }
         if(GET_DAILY_MAXIMUM_DIFFICULTY){
-            dailyMaxDifficulty = new HashMap<>();
+            dailyMaxDifficulties = new HashMap<>();
             BlockchainDataAPIFuncitons.put("GET_DAILY_MAXIMUM_DIFFICULTY", (Object... o) -> getBlockDifficulty((Block)o[0]));
             bitcoinJAPIFuncitons.put("GET_DAILY_MAXIMUM_DIFFICULTY", (Object... o) -> BitcoinReader.getBlockDifficulty((org.bitcoinj.core.Block)o[0]));
         }
         if(CALCULATE_AVERAGE_TIME_BETWEEN_BLOCKS){
-            dailyAverageDifference = new HashMap<>();
+            dailyAverageDifferences = new HashMap<>();
             BlockchainDataAPIFuncitons.put("CALCULATE_AVERAGE_TIME_BETWEEN_BLOCKS", (Object... o) -> calculateAverageTimeDifference((Block)o[0], (BlockTimeDifferenceAverage)o[1]));
             bitcoinJAPIFuncitons.put("CALCULATE_AVERAGE_TIME_BETWEEN_BLOCKS", (Object... o) -> BitcoinReader.calculateAverageTimeDifference((org.bitcoinj.core.Block)o[0], (BlockTimeDifferenceAverage)o[1]));
+        }
+        if(SUMMARIZE_DAILY_BITCOIN_PRODUCTION){
+            dailyBitcoinProductions = new HashMap<>();
+            BlockchainDataAPIFuncitons.put("SUMMARIZE_DAILY_BITCOIN_PRODUCTION", (Object... o) -> getBlockNewBitCoins((Block)o[0]));
+            bitcoinJAPIFuncitons.put("SUMMARIZE_DAILY_BITCOIN_PRODUCTION", (Object... o) -> BitcoinReader.getBlockNewBitCoins((org.bitcoinj.core.Block)o[0]));
+        }
+        if(SUMMARIZE_DAILY_BLOCK_PRODUCTION){
+            dailyBlockProductions = new HashMap<>();
+            BlockchainDataAPIFuncitons.put("SUMMARIZE_DAILY_BLOCK_PRODUCTION", (Object... o) -> getBlockDay((Block)o[0]));
+            bitcoinJAPIFuncitons.put("SUMMARIZE_DAILY_BLOCK_PRODUCTION", (Object... o) -> BitcoinReader.getBlockDay((org.bitcoinj.core.Block)o[0]));
         }
     }
 
@@ -289,6 +303,12 @@ public class App {
         return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(timeToDate(block.getTime())), block.getBits());
     }
 
+    /**
+     * Egy adott blokktól szerzi meg a keletkezési idejét, és adja tovább
+     * @param block A vizsgált blokk
+     * @param blockTimeDifferenceAverage Az objektum, ami az aktuális átlagot számolja
+     * @return A blokk keletkezési ideje, és az átlagot számoló objektum.
+     */
     private static MapPair<String, Object> calculateAverageTimeDifference(Block block, BlockTimeDifferenceAverage blockTimeDifferenceAverage){
         if(blockTimeDifferenceAverage != null){
             blockTimeDifferenceAverage.addBlockTime(block.getTime() * 1000);
@@ -296,6 +316,39 @@ public class App {
         } else {
             return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(timeToDate(block.getTime())), null);
         }
+    }
+
+    /**
+     * Sajnos az API nem tartja sorrendben a tranzakciókat a blokkban, így nekünk kell megkeresni a generáló tranzakciót.
+     * Ez minden esetben a legkésőbbi tranzakciót fogja jelenteni.
+     * @param block A vizsgált blokk
+     * @return A blokk keletkezési ideje, és a keletkezett bitcoinok.
+     */
+    private static MapPair<String, Object> getBlockNewBitCoins(Block block){
+         Transaction latest = null;
+         for(Transaction t : block.getTransactions()){
+             if(latest == null || latest.getTime() < t.getTime()){
+                 latest = t;
+             }
+         }
+         Double newBitcoin = 0.0;
+         if (latest != null) {
+             if((int)(latest.getOutputs().get(0).getValue()/1250000000) == 1 ){
+                 newBitcoin += 12.5; // 2018.05.02, a jelenlegi blokkok ehhez az API-hoz mind 12.5 BitCoint "termelnek"
+             } else{
+                 newBitcoin += 6.25; // utána meg évekig még ez is jó lesz...
+             }
+         }
+        return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(timeToDate(block.getTime())), newBitcoin);
+    }
+
+    /**
+     * Sztring formában visszatér a blokk keletkezési idejével
+     * @param block A vizsgált blokk
+     * @return MapPair, de csak a keletkezési nap van benne.
+     */
+    private static MapPair<String, Object> getBlockDay(Block block){
+        return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(timeToDate(block.getTime())), null);
     }
 
     /**
@@ -322,32 +375,51 @@ public class App {
         }
         if(SEARCH_DAILY_MAXIMUM_OUTPUT_TRANSACTION){
             MapPair<String, Object> blockHighestOutput = functionsToUse.get("SEARCH_DAILY_MAXIMUM_OUTPUT_TRANSACTION").function(schroedingerBlock);
-            if(!dailyMaxTx.containsKey(blockHighestOutput.getKey()) || (dailyMaxTx.containsKey(blockHighestOutput.getKey()) && (Long)dailyMaxTx.get(blockHighestOutput.getKey()) < (Long)blockHighestOutput.getValue())){
-                dailyMaxTx.put(blockHighestOutput.getKey(), blockHighestOutput.getValue());
+            if(!dailyMaxTxs.containsKey(blockHighestOutput.getKey()) || (dailyMaxTxs.containsKey(blockHighestOutput.getKey()) && (Long) dailyMaxTxs.get(blockHighestOutput.getKey()) < (Long)blockHighestOutput.getValue())){
+                dailyMaxTxs.put(blockHighestOutput.getKey(), blockHighestOutput.getValue());
             }
         }
         if(SUM_DAILY_BITCOIN_OUTPUTS){
             MapPair<String, Object> blockBitcoinOutputSum = functionsToUse.get("SUM_DAILY_BITCOIN_OUTPUTS").function(schroedingerBlock);
-            if (!dailyBitcoinOutput.containsKey(blockBitcoinOutputSum.getKey())) {
-                dailyBitcoinOutput.put(blockBitcoinOutputSum.getKey(), blockBitcoinOutputSum.getValue());
+            if (!dailyBitcoinOutputs.containsKey(blockBitcoinOutputSum.getKey())) {
+                dailyBitcoinOutputs.put(blockBitcoinOutputSum.getKey(), blockBitcoinOutputSum.getValue());
             } else {
-                dailyBitcoinOutput.put(blockBitcoinOutputSum.getKey(), (Long)dailyBitcoinOutput.get(blockBitcoinOutputSum.getKey()) + (Long)blockBitcoinOutputSum.getValue());
+                dailyBitcoinOutputs.put(blockBitcoinOutputSum.getKey(), (Long) dailyBitcoinOutputs.get(blockBitcoinOutputSum.getKey()) + (Long)blockBitcoinOutputSum.getValue());
             }
         }
         if(GET_DAILY_MAXIMUM_DIFFICULTY){
             MapPair<String, Object> blockDifficulty = functionsToUse.get("GET_DAILY_MAXIMUM_DIFFICULTY").function(schroedingerBlock);
-            if(!dailyMaxDifficulty.containsKey(blockDifficulty.getKey()) || (dailyMaxDifficulty.containsKey(blockDifficulty.getKey()) && (Long)dailyMaxDifficulty.get(blockDifficulty.getKey()) < (Long)blockDifficulty.getValue())){
-                dailyMaxDifficulty.put(blockDifficulty.getKey(), blockDifficulty.getValue());
+            if(!dailyMaxDifficulties.containsKey(blockDifficulty.getKey()) || (dailyMaxDifficulties.containsKey(blockDifficulty.getKey()) && (Long) dailyMaxDifficulties.get(blockDifficulty.getKey()) < (Long)blockDifficulty.getValue())){
+                dailyMaxDifficulties.put(blockDifficulty.getKey(), blockDifficulty.getValue());
             }
         }
         if(CALCULATE_AVERAGE_TIME_BETWEEN_BLOCKS){
+            /*Két paramétert vár a függvény*/
+            /*Kicsit más, mint a többi, abból a szempontból, hogy az átlagot egy külön objektummal kell kezelnünk, és ezt is át kell adni a függvénynek */
+            /*Minden nap elkezdésekor létre kell hozni ebből az objektumból egyet, amelyet a többi alkalommal használjuk*/
             String date = functionsToUse.get("CALCULATE_AVERAGE_TIME_BETWEEN_BLOCKS").function(schroedingerBlock, null).getKey();
-            if(!dailyAverageDifference.containsKey(date)){
+            if(!dailyAverageDifferences.containsKey(date)){
                 MapPair<String, Object> newerAverage = functionsToUse.get("CALCULATE_AVERAGE_TIME_BETWEEN_BLOCKS").function(schroedingerBlock, new BlockTimeDifferenceAverage());
-                dailyAverageDifference.put(newerAverage.getKey(), newerAverage.getValue());
+                dailyAverageDifferences.put(newerAverage.getKey(), newerAverage.getValue());
             } else {
-                MapPair<String, Object> newerAverage = functionsToUse.get("CALCULATE_AVERAGE_TIME_BETWEEN_BLOCKS").function(schroedingerBlock, dailyAverageDifference.get(date));
-                dailyAverageDifference.put(newerAverage.getKey(), newerAverage.getValue());
+                MapPair<String, Object> newerAverage = functionsToUse.get("CALCULATE_AVERAGE_TIME_BETWEEN_BLOCKS").function(schroedingerBlock, dailyAverageDifferences.get(date));
+                dailyAverageDifferences.put(newerAverage.getKey(), newerAverage.getValue());
+            }
+        }
+        if(SUMMARIZE_DAILY_BITCOIN_PRODUCTION){
+            MapPair<String, Object> blockBitcoinProduction = functionsToUse.get("SUMMARIZE_DAILY_BITCOIN_PRODUCTION").function(schroedingerBlock);
+            if(!dailyBitcoinProductions.containsKey(blockBitcoinProduction.getKey())){
+                dailyBitcoinProductions.put(blockBitcoinProduction.getKey(), blockBitcoinProduction.getValue());
+            } else {
+                dailyBitcoinProductions.put(blockBitcoinProduction.getKey(), (Double)dailyBitcoinProductions.get(blockBitcoinProduction.getKey()) + (Double)blockBitcoinProduction.getValue());
+            }
+        }
+        if(SUMMARIZE_DAILY_BLOCK_PRODUCTION){
+            MapPair<String, Object> blockProduction = functionsToUse.get("SUMMARIZE_DAILY_BLOCK_PRODUCTION").function(schroedingerBlock);
+            if(!dailyBlockProductions.containsKey(blockProduction.getKey())){
+                dailyBlockProductions.put(blockProduction.getKey(), 1);
+            } else {
+                dailyBlockProductions.put(blockProduction.getKey(), (Integer)dailyBlockProductions.get(blockProduction.getKey()) + 1);
             }
         }
     }
@@ -368,29 +440,43 @@ public class App {
         }
         if(SEARCH_DAILY_MAXIMUM_OUTPUT_TRANSACTION){
             PrintWriter writer = new PrintWriter("napi_max_TX.txt");
-            for (String d : dailyMaxTx.keySet()) {
-                writer.println(d + ";" + dailyMaxTx.get(d));
+            for (String d : dailyMaxTxs.keySet()) {
+                writer.println(d + ";" + dailyMaxTxs.get(d));
             }
             writer.close();
         }
         if(SUM_DAILY_BITCOIN_OUTPUTS){
             PrintWriter writer = new PrintWriter("napi_bitcoin_output_sum.txt");
-            for (String d : dailyBitcoinOutput.keySet()) {
-                writer.println(d + ";" + dailyBitcoinOutput.get(d));
+            for (String d : dailyBitcoinOutputs.keySet()) {
+                writer.println(d + ";" + dailyBitcoinOutputs.get(d));
             }
             writer.close();
         }
         if(GET_DAILY_MAXIMUM_DIFFICULTY){
             PrintWriter writer = new PrintWriter("napi_maximum_nehézség.txt");
-            for (String d : dailyMaxDifficulty.keySet()) {
-                writer.println(d + ";" + dailyMaxDifficulty.get(d));
+            for (String d : dailyMaxDifficulties.keySet()) {
+                writer.println(d + ";" + dailyMaxDifficulties.get(d));
             }
             writer.close();
         }
         if(CALCULATE_AVERAGE_TIME_BETWEEN_BLOCKS){
             PrintWriter writer = new PrintWriter("napi_blokkok_között_eltelt_átlagos_idő.txt");
-            for (String d : dailyAverageDifference.keySet()) {
-                writer.println(d + ";" + ((BlockTimeDifferenceAverage)dailyAverageDifference.get(d)).makeAverage());
+            for (String d : dailyAverageDifferences.keySet()) {
+                writer.println(d + ";" + ((BlockTimeDifferenceAverage) dailyAverageDifferences.get(d)).makeAverage());
+            }
+            writer.close();
+        }
+        if(SUMMARIZE_DAILY_BITCOIN_PRODUCTION){
+            PrintWriter writer = new PrintWriter("napi_megtermelt_új_bitcoin.txt");
+            for (String d : dailyBitcoinProductions.keySet()) {
+                writer.println(d + ";" + dailyBitcoinProductions.get(d));
+            }
+            writer.close();
+        }
+        if(SUMMARIZE_DAILY_BLOCK_PRODUCTION){
+            PrintWriter writer = new PrintWriter("napi_megtermelt_új_blokk.txt");
+            for (String d : dailyBlockProductions.keySet()) {
+                writer.println(d + ";" + dailyBlockProductions.get(d));
             }
             writer.close();
         }

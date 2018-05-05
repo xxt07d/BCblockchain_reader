@@ -24,7 +24,7 @@ public class BlockTimeDifferenceAverage {
      * Ez a függvény szolgál arra, hogy hozzáadjunk további blokkokat.
      * Csak akkor adunk hozzá, ha eddig nem adtunk hozzá egyet sem, vagy ha megegyezik a blokk keletkezési napja
      * az eltárolt (day) nappal.
-     * @param blockTime
+     * @param blockTime A beadott blokk keletkezési ideje.
      */
     public void addBlockTime(long blockTime){
         if(day == null){

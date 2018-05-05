@@ -57,7 +57,6 @@ public class BitcoinReader {
 
                 // minden megvizsgált blokk esetén továbblépünk
                 blockCounter++;
-
                 // jelzi, hogy a feldolgozás halad
                 System.out.println("Analysing block " + blockCounter);
 
@@ -157,6 +156,12 @@ public class BitcoinReader {
         return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(block.getTime()), block.getDifficultyTarget());
     }
 
+    /**
+     * Egy adott blokktól szerzi meg a keletkezési idejét, és adja tovább
+     * @param block A vizsgált blokk
+     * @param blockTimeDifferenceAverage Az objektum, ami az aktuális átlagot számolja
+     * @return A blokk keletkezési ideje, és az átlagot számoló objektum.
+     */
     public static MapPair<String, Object> calculateAverageTimeDifference(Block block, BlockTimeDifferenceAverage blockTimeDifferenceAverage){
         if(blockTimeDifferenceAverage != null){
             blockTimeDifferenceAverage.addBlockTime(block.getTime().getTime());
@@ -164,5 +169,34 @@ public class BitcoinReader {
         } else {
             return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(block.getTime()), null);
         }
+    }
+
+    /**
+     * A bitcoinJ API sajátossága, hogy a tranzakcióknál mindig a legelső az, amelyiknél az új bitcoinok létrejönnek
+     * Ezzel csak annyi a teendő, hogy megnézzük, hogy mennyit termel. Erről köztudott, hogy 50->25->12.5... értékű
+     * @param block A vizsgált blokkgyűjtjük
+     * @return A blokk keletkezési napja, és a blokkal keletkezett új Bitcoinok
+     */
+    public static MapPair<String, Object> getBlockNewBitCoins(Block block){
+        @SuppressWarnings("ConstantConditions") long satoshi = block.getTransactions().get(0).getOutput(0).getValue().getValue();
+        Double newBitcoin = 0.0;
+        if((int)(satoshi/5000000000.0) == 1){
+            newBitcoin += 50;
+        } else if((int)(satoshi/2500000000.0) == 1){
+            newBitcoin += 25;
+        } else{
+            newBitcoin += 12.5; // utána kövi APIt használjuk
+        }
+        return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(block.getTime()), newBitcoin);
+    }
+
+
+    /**
+     * Sztring formában visszatér a blokk keletkezési idejével
+     * @param block A vizsgált blokk
+     * @return MapPair, de csak a keletkezési nap van benne.
+     */
+    public static MapPair<String, Object> getBlockDay(Block block){
+        return new MapPair<>(new SimpleDateFormat("yyyy-MM-dd").format(block.getTime()), null);
     }
 }
